@@ -16,8 +16,8 @@
 # Step 1. Set your WD #
 # ------------------- #
 
-#WD <- "C:/Users/lnh88/Dropbox/GitData/Data-visualizacion-tools/" #minipc
-WD <- "C:/Users/lnh88/Dropbox/GitData/Data-visualizacion-tools/" #laptop
+#WD <- "C:/Users/lnh88/Dropbox/GitData/Data-visualization-tools/" #minipc
+WD <- "C:/Users/lnh88/Dropbox/GitData/Data-visualization-tools/" #laptop
 
 # -------------------- #
 # Step 2. Requirements #
@@ -29,6 +29,8 @@ WD <- "C:/Users/lnh88/Dropbox/GitData/Data-visualizacion-tools/" #laptop
 #install.packages("sf")
 #install.packages("ggplot2")
 #install.packages("Cairo")
+#install.packages("purrr")
+#install.packages("readr")
 
 # load libraries
 library(marmap)
@@ -36,6 +38,8 @@ library(rnaturalearthdata)
 library(sf)
 library(ggplot2)
 library(Cairo)
+library(purrr)
+library(readr)
 
 # ------------------ #
 # Step 3. Study area #
@@ -67,25 +71,25 @@ world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
 # ---------------- #
 
 # from marineregions
-eezs <- sf::read_sf(paste0(WD,"input/EEZ_land_union_v3_202003/EEZ_Land_v3_202030.shp")) 
+# eezs <- sf::read_sf(paste0(WD,"input/EEZ_land_union_v3_202003/EEZ_Land_v3_202030.shp")) 
 
 # --------------------------------- #
 # Step 7. Load tag deployment sites #
 # --------------------------------- #
 
-sites <- read.csv2(paste0(WD,"input/colonysites.csv"))
+sites <- read.csv2(paste0(WD,"input/sites.csv"))
 
 # ---------------------- #
 # Step 8. Load GPS files #
 # ---------------------- #
 
-files <- list.files(path = paste0(WD, "input/"), pattern = "*trips_L2.csv", recursive = TRUE)
+files <- list.files(path = paste0(WD, "input/trips/"), pattern = "*.csv", recursive = TRUE)
 
 GPS <- files %>%
-  # read in all the files, appending the path before the filename
-  map_df(~ read_csv(file.path(paste0(WD,"input/"), .))) %>%
+  # read in all the files
+  map_df(~ readr::read_csv(file.path(paste0(WD,"input/trips/"), .))) %>%
   # select coordinates and colonyname
-  dplyr::select(longitude, latitude, colonyName, tripID)
+  dplyr::select(longitude, latitude, tripID) 
 
 # --------------- #
 # Step 9. Plot it #
@@ -96,30 +100,27 @@ p <-
   ggplot(bath) +
   # fill background in white
   geom_raster(aes(x, y),fill="white")+ 
-  # define x and y labels
-  xlab("Longitude") + ylab("Latitude")+
   # add GPS paths
-  geom_path(data = GPS, aes(x=longitude, y=latitude, group=tripID, colour = colonyName), lwd  = 0.1, alpha=0.8, show.legend = F) +
+  geom_path(data = GPS, aes(x=longitude, y=latitude, group=tripID, colour=tripID), lwd  = 0.1, alpha=0.8, show.legend = F) +
   # plot land mask
-  geom_sf(data = msk_sf, 
+  geom_sf(data = world, 
           color = "gray30", fill = "gray90",lwd  = 0.05) +
   # plot EEZ
-  geom_sf(data = eezs,
-          color = alpha("gray30",0.4),
-          fill = NA,
-          lwd  = 0.05,
-          lty = 1)+     
+  #geom_sf(data = eezs,
+  #        color = alpha("gray30",0.4),
+  #        fill = NA,
+  #        lwd  = 0.05,
+  #        lty = 1)+     
   # add bathymetry -200 line 
   geom_contour(data = bath, aes(x, y, z = z),
                breaks=c(-200),
                colour="gray10", lwd  = 0.1 ,
                lty = 1) + 
   # add tag deployment sites
-  geom_point(data=c,aes(longitude,latitude), size=1.3, shape=17, colour="black", show.legend = F)+  
-  geom_point(data=c,aes(longitude,latitude), size=0.8, shape=17, colour="white", show.legend = F)+  
-  geom_point(data=c,aes(longitude,latitude, colour = colonyName), size=0.4, shape=17)+
+  geom_point(data=sites, aes(longitude,latitude), size=1.3, shape=17, colour="black", show.legend = F)+  
+  geom_point(data=sites, aes(longitude,latitude), size=0.3, shape=17, colour="white", show.legend = F)+  
   # extent
-  coord_sf(xlim = c(lon0, lon1), ylim = c(lat0, lat1))+
+  coord_sf(xlim = c(lonmin, lonmax), ylim = c(latmin, latmax))+
   # add scale
   ggspatial::annotation_scale(location = "br", 
                               line_col ="black",
@@ -140,6 +141,8 @@ p <-
         plot.background = element_rect(fill = "transparent", colour = NA),
         legend.position="none"
   )+
+  # define x and y labels
+  xlab("Longitude") + ylab("Latitude")+
   # some more labels specific for that area
   geom_point(x=-17.05,y=20.99, size=0.8, shape=16, colour="black")+
   geom_point(x=-17.05,y=20.99, size=0.05, shape=16, colour="white")+
@@ -263,15 +266,15 @@ p <-
   ) 
   
 
-x11();p
+#x11();p
 
 # ---------------- #
 # Step 10. Save it #
 # ---------------- #
 
-setwd(paste0(WD,"output/figures"))
+setwd(paste0(WD,"output/"))
 
-Cairo::Cairo(file = "StudyArea.png",
+Cairo::Cairo(file = "EAtlantic.png",
              type = "png",
              units = "mm",
              width = 80,
